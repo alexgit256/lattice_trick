@@ -1,4 +1,4 @@
-"""
+"ld""""
 Functions which solve lattice problems for use in subalgorithms of KLPT.
 
 For KLPT there are a few spots where we need to enumerate short vectors
@@ -313,7 +313,7 @@ def generate_close_vectors_my(lattice_basis, target, p, L, count=200, seed=0, wh
     #
     # lattice_basis = lattice_basis.LLL()
     # B = IntegerMatrix.from_matrix( lattice_basis )
-    # G = GSO.Mat( B, float_type="dd" )
+    # G = GSO.Mat( B, float_type="ld" )
     # G.update_gso()
 
     # yield next(EnumerateCloseVectors(G,1,target,bound))
@@ -361,7 +361,7 @@ def generate_close_vectors_old(lattice_basis, target, p, L, count=1000, seed=0, 
     bound = floor((b0 + distance) + (2 * (b0 * distance).sqrt()))
 
     B = IntegerMatrix.from_matrix( lattice_basis )
-    G = GSO.Mat( B, float_type="dd" )
+    G = GSO.Mat( B, float_type="ld" )
     G.update_gso()
     # seed = randint(0,2**20)
     if dump:
@@ -377,7 +377,7 @@ def generate_close_vectors_old(lattice_basis, target, p, L, count=1000, seed=0, 
 
     lattice_basis = lattice_basis.LLL()
     B = IntegerMatrix.from_matrix( lattice_basis )
-    G = GSO.Mat( B, float_type="dd" )
+    G = GSO.Mat( B, float_type="ld" )
     G.update_gso()
 
     # yield next(EnumerateCloseVectors(G,1,target,bound))

@@ -293,7 +293,7 @@ for ii in range(len(objects)):
     print( f"Classic result: { msg if oldstepnum<0 else oldstepnum } with norm { msg if oldrednrm<0 else oldrednrm }" )
     rat = myrednrm/oldrednrm
     if rat>0:
-        print( f"Ratio: {(rat)}" )
+        print( f"Ratio my/classic: {(rat)}" )
 
 
     lmy = list(islice(gen_my_implementation,nsamples))    #list of enum vect (my)
