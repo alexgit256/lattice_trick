@@ -183,7 +183,7 @@ def strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_
 
     if xp is None:
         # Never found vector which had a valid solution
-        return None
+        return None, None
 
     # Use solution to construct element μ
     # μ = λ*j*(C + D*ω) + N*(xp + ω*yp + j*(zp + ω*tp))
@@ -197,9 +197,15 @@ def strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_
 
     # Check that Nrd(μ) == L
     # and that μ is in O0
-    assert μ.reduced_norm() == L
+    rednrm = μ.reduced_norm()
+    # print( f"{which_enum}: {μ} : {rednrm}" )
+    # if which_enum == "my":
+    #     print(f"My norm: {rednrm}")
+    # else:
+    #     print(f"Classical norm: {rednrm}")
+    assert rednrm == L
     assert μ in O0
-    return stepnum #μ
+    return stepnum, μ #μ
 
 args = sys.argv
 
@@ -269,18 +275,25 @@ for ii in range(len(objects)):
 
     N, C, D, λ, L, small_power_of_two = TMP2["N"], TMP2["C"], TMP2["D"], TMP2["lambda"], TMP2["L"], TMP2["small_power_of_two"]
     try:
-        mystepnum = strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_of_two, which_enum="my")
+        mystepnum, myrednrm = strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_of_two, which_enum="my")
+        myrednrm = -1 if myrednrm is None else vector( list(myrednrm) ).norm().n()
     except AssertionError:
-        mystepnum = -1
+        mystepnum, myrednrm = -1, -1
     try:
-        oldstepnum = strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_of_two, which_enum="not_my")
+        oldstepnum, oldrednrm = strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_of_two, which_enum="not_my")
+        oldrednrm = -1 if oldrednrm is None else vector( list(oldrednrm) ).norm().n()
     except AssertionError:
-        oldstepnum = -1
+        oldstepnum, oldrednrm = -1, -1
     if mystepnum is None:
-        mystepnum=-1
+        mystepnum, myrednrm = -1, -1
     if oldstepnum is None:
-        oldstepnum=-1
-
+        oldstepnum, oldrednrm = -1, -1
+    msg = f"failed to find"
+    print( f"My result:      { msg if mystepnum<0 else mystepnum } with norm { msg if myrednrm<0 else myrednrm }" )
+    print( f"Classic result: { msg if oldstepnum<0 else oldstepnum } with norm { msg if oldrednrm<0 else oldrednrm }" )
+    rat = myrednrm/oldrednrm
+    if rat>0:
+        print( f"Ratio: {(rat)}" )
 
 
     lmy = list(islice(gen_my_implementation,nsamples))    #list of enum vect (my)
@@ -299,17 +312,19 @@ for ii in range(len(objects)):
     if graph_flag:
         # list_plot( [RR(d) for d in diff] ).save_image(f"{counter}_diff.png")
         plt.plot(np.array(nmy), color='blue')
-        if mystepnum>0:
-            plt.plot([mystepnum],[nmy[min(len(nmy)-1,mystepnum)]], marker="*",color="blue", markersize=15)
         plt.plot(ncanon, color='red')
+
+        if mystepnum>0:
+            plt.plot([mystepnum],[nmy[min(len(nmy)-1,mystepnum)]], marker="*",color="black", markersize=15)
+
         if oldstepnum>0:
-            plt.plot([oldstepnum],[ncanon[min(len(ncanon)-1,oldstepnum)]], marker="*",color="red", markersize=15)
+            plt.plot([oldstepnum],[ncanon[min(len(ncanon)-1,oldstepnum)]], marker="*",color="orange", markersize=15)
         red_patch = mpatches.Patch(color='blue', label='My')
         blue_patch = mpatches.Patch(color='red', label='SQISign')
         plt.legend(handles=[blue_patch,red_patch])
         plt.savefig(f"{counter}_comp.png")
         plt.clf()
-        print(f"my: {mystepnum} | their: {oldstepnum}")
+        # print(f"my: {mystepnum} | their: {oldstepnum}")
         # try:
         #     if isinstance( multdiff, list ):
         #         list_plot( multdiff ).save_image(f"{counter}_mult.png")

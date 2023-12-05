@@ -464,7 +464,7 @@ def strong_approximation_construct_lattice(N, C, D, λ, L, small_power_of_two=Fa
 
     # Construct the lattice basis
     lattice_basis = N * Matrix(ZZ, [[1, ZZ((-coeff_z * coeff_t_inv) % N)], [0, N]])
-    assert all( [ (coeff_z*b[0] + coeff_t*b[1])%N**2 == 0 for b in lattice_basis] ), f"AAAAA: {[ (coeff_t*b[0] - coeff_z*b[1])%N**2 for b in lattice_basis]}"
+    assert all( [ (coeff_z*b[0] + coeff_t*b[1])%N**2 == 0 for b in lattice_basis] ), f"Bad coeffs: {[ (coeff_t*b[0] - coeff_z*b[1])%N**2 for b in lattice_basis]}"
 
     # Construct the target vector
     target = λ * vector([ZZ(C), ZZ(D)]) + N * vector([zp0, tp0])
@@ -547,6 +547,11 @@ def strong_approximation_lattice_heuristic(N, C, D, λ, L, small_power_of_two=Fa
 
     # Check that Nrd(μ) == L
     # and that μ is in O0
+    rednrm = μ.reduced_norm()
+    if which_enum == "my":
+        print(f"My norm: {rednrm}")
+    else:
+        print(f"Classical norm: {rednrm}")
     assert μ.reduced_norm() == L
     assert μ in O0
     return μ
