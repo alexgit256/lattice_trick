@@ -76,7 +76,7 @@ def generate_short_vectors_fpyll(L, bound, count=3000):
     try:
         # The arguments of enumerate are:
         # E.enumerate(first_row, last_row, max_dist, max_dist_expo)
-        short_vectors = E.enumerate(0, r, bound, 0)
+        short_vectors = E.enumerate(0, r, bound**2, 0)
     except Exception as e:
         print(f"DEBUG [generate_short_vectors_fpyll]: No short vectors could be found...")
         print(f"{e}")
@@ -100,25 +100,6 @@ def generate_short_vectors(lattice_basis, bound, count=3000):
         v3 = vector([ZZ(xi) for xi in xis])
         v = v3 * L
         yield v
-
-def list_generate_short_vectors(lattice_basis, bound, count=3000):
-    """
-    Generate a generator of short vectors with norm <= `bound`
-    returns at most `count` vectors.
-
-    Most of the heavy lifting of this function is done by
-    generate_short_vectors_fpyll
-    """
-    L = lattice_basis.LLL()
-    l = []
-    short_vectors = generate_short_vectors_fpyll(L, bound, count=count)
-    for _, xis in short_vectors:
-        # Returns values x1,x2,...xr such that
-        # x0*row[0] + ... + xr*row[r] = short vector
-        v3 = vector([ZZ(xi) for xi in xis])
-        v = v3 * L
-        l.append( v )
-    return(l)
 
 def norm_(l):
     return ( sum( ll**2 for ll in l )**0.5 )

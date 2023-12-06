@@ -30,6 +30,11 @@ import matplotlib.patches as mpatches
 from lattices import *
 from KLPT import *
 
+import numpy as np
+
+def geo_mean_overflow(iterable):
+    return np.exp(np.log(iterable).mean())
+
 RR = RealField(100)
 
 def strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_of_two=False, seed=0, which_enum="my"):
@@ -163,6 +168,7 @@ objects2.sort(key=lambda obj:obj["seed"])
 # assert all( [objects[i]["seed"]==objects2[i]["seed"] for i in range(len(objects))] ), f"Inconsistent data: seeds do not match!"
 
 #For TMP in loaded lattices, compare.
+normrat_list, steprat_list = [], []
 
 counter = 0
 for ii in range(len(objects)):
@@ -197,9 +203,12 @@ for ii in range(len(objects)):
     msg = f"failed to find"
     print( f"My result:      { msg if mystepnum<0 else mystepnum } steps with norm { msg if myrednrm<0 else myrednrm }" )
     print( f"Classic result: { msg if oldstepnum<0 else oldstepnum }  steps  with norm { msg if oldrednrm<0 else oldrednrm }" )
-    rat = myrednrm/oldrednrm
-    if rat>0 and mystepnum>0:
-        print( f"Ratio norm diff: my/classic: {(rat)} mysteps/classicsteps: {RealField(40)(mystepnum/oldstepnum)}" )
+    normrat = myrednrm/oldrednrm
+    steprat = mystepnum/oldstepnum
+    if steprat>0 and mystepnum>0:
+        print( f"Ratio norm diff: my/classic: {(normrat)} mysteps/classicsteps: {RealField(40)(steprat)}" )
+        normrat_list.append(normrat)
+        steprat_list.append(steprat)
     print()
 
 
@@ -244,3 +253,6 @@ for ii in range(len(objects)):
         # except ValueError:
         #     print("What?")
     counter+=1
+
+print( f"Mean step ratio: {geo_mean_overflow(steprat_list)}" )
+print( f"Mean norm ratio: {geo_mean_overflow(normrat_list)}" )
