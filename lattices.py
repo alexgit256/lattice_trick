@@ -217,6 +217,7 @@ def generate_close_vectors_my(lattice_basis, target, p, L, count=200, seed=0, wh
     # Compute the closest element
     lattice_basis =  matrix(lattice_basis).LLL()
     closest = solve_closest_vector_problem(lattice_basis, target)
+    print(f"cl: {lattice_basis.solve_left(closest)}")
     yield closest
 
     # print(f"target: {target}")

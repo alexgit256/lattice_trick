@@ -205,8 +205,8 @@ for ii in range(len(objects)):
 
     lmy = list(islice(gen_my_implementation,nsamples))    #list of enum vect (my)
     lcanon = list(islice(gen_canon_implementation,nsamples))   #list of enum vect (their)
-    nmy = [ norm(v).n(40) for v in lmy ]
-    ncanon = [ norm(v).n(40) for v in lcanon ]
+    nmy = [ norm(v-target).n(40) for v in lmy ]
+    ncanon = [ norm(v-target).n(40) for v in lcanon ]
     diff = [nmy[i]-ncanon[i] for i in range(min(len(nmy),len(ncanon)))]
     try:
         multdiff = [abs(nmy[i]/ncanon[i]) for i in range(min(len(nmy),len(ncanon)))]
