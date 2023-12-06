@@ -234,12 +234,14 @@ for ii in range(len(objects)):
         plt.plot(ncanon, color='red')
 
         if mystepnum>0:
-            plt.plot([mystepnum],[nmy[min(len(nmy)-1,mystepnum)]], marker="*",color="black", markersize=15)
+            plt.plot([mystepnum],[nmy[min(len(nmy)-1,mystepnum)]], marker="*",color="blue", markersize=15,  markeredgewidth=2, markeredgecolor=(0,0,0, 1)) #color="black"
 
         if oldstepnum>0:
-            plt.plot([oldstepnum],[ncanon[min(max(0, len(ncanon)-1),oldstepnum)]], marker="*",color="orange", markersize=15)
+            plt.plot([oldstepnum],[ncanon[min(max(0, len(ncanon)-1),oldstepnum)]], marker="*",color="red", markersize=15, markeredgewidth=2, markeredgecolor=(0,0,0, 1))
         red_patch = mpatches.Patch(color='blue', label='My')
+        # black_patch = mpatches.Patch(marker = "*", color='black', label='My - found')
         blue_patch = mpatches.Patch(color='red', label='SQISign')
+        # yellow_patch = mpatches.Patch(marker = "*", color='red', label='SQISign - found') #
         plt.legend(handles=[blue_patch,red_patch])
 
         plt.title(f"r11/r00: {G.get_r(1,1)**0.5 / G.get_r(0,0)**0.5: .4f}, mu10: {G.get_mu(1,0): .4f}, bnd/r00^2: {bound/ G.get_r(0,0): .4f}")
