@@ -32,103 +32,9 @@ from KLPT import *
 
 RR = RealField(100)
 
-def enum(B,t,r, count = 3000):
-    out = []
-    b0, b1 = vector(B[0]), vector(B[1])
-    mu = RR(b1.dot_product(b0)/norm(b0)**2) #projection of b1 on b0
-    bstar1 = (b1 - mu*b0).n()   #1st gs vector (bstar0 = b0)
-    sy = t
-    py = sy.dot_product(bstar1)/bstar1.dot_product(bstar1) #projection on first gsvect
-    ry = ceil( min( r/norm(bstar1), count ) ) #bound on the largest x-ennum
-    px = (t.dot_product(b0)/b0.dot_product(b0)).n()
-    maxrx = RR( sqrt( r**2 - (norm(bstar1)*round(py))**2 ) / norm(b0) ) #bound on the largest y-enum
-    branch_lim = max( floor(ry), floor(maxrx) )
-    retno = 0   #counter to determine when to stop
-    for b in range( branch_lim ):
-        for y in set( [ round(py+b) , round(py-b) ] ):#each y in that boundary has 2*(b-1)+1 enumerated children,
-                                     #so we have to enum only 2 children at that stage
-            sx = sy - y*b1
-            rx = (r**2-round(py-y)**2*norm(bstar1).n()**2).n()
-            if rx <0: #we don't need complex numbers in range()
-                break
-            rx = RR( sqrt( rx ) / norm(b0) ) #bound on radius for x (we could store this, but the bound is too high and we expect first ~100 vectors to succseed)
-            rx = round(rx)
-            px = (sx.dot_product(b0)/b0.dot_product(b0)).n()    #center of x's
-            if b<2*rx: #x in: [(px-rx), round(px+rx)]
-                yield vector((round(px+b),y))*B
-                yield vector((round(px-b),y))*B
-                retno+=2 #increase the number of returns
-            if retno >= count:
-                break
-        if retno >= count:
-            break
-
-        for yy in range( 2*b+1 ):   #newly added y's have 2*b+1 children to be enumerated
-            y = round( (-1)**((yy)%2)*(yy//2) + py )    #we start enumeration from center to border
-            sx = sy - y*b1
-            rx = (r**2-round(py-y)**2*norm(bstar1).n()**2).n()  #bound on radius for x
-            if rx <0:
-                continue
-            rx = RR( sqrt( rx ) )
-            px = (sx.dot_product(b0)/b0.dot_product(b0)).n() #center of x's
-            for xx in range( min( ceil(RR(2*rx)), 2*b+1 ) ): #x in: [(px-rx), round(px+rx)]
-                x =  round( (-1)**((1+xx)%2)*xx + px ) #? (1+xx)%2 ?
-                yield vector((x,y))*B
-                retno+=1
-
-def generate_close_vectors_my_(lattice_basis, target, p, L, count=3000, dump=False):
-    """
-    Generate a generator of vectors which are close, without
-    bound determined by N to the `target`. The first
-    element of the list is the solution of the CVP.
-
-    This is included in this file just to show, how generate_close_vectors would look like after my fix. Tested.
-    """
-    # Compute the closest element
-    lattice_basis =  matrix(lattice_basis).LLL()
-    closest = solve_closest_vector_problem(lattice_basis, target)
-    yield closest
-
-    # Set the distance
-    diff = target - closest
-    distance = diff.dot_product(diff)
-
-    # Compute the bound from L
-    tar=[float(vv) for vv in target]
-    b0 = L // p
-    bound = floor((b0 + distance) + (2 * (b0 * distance).sqrt()))
-
-    C = enum(lattice_basis,target, bound)
-    closest_vectors = C
-    for cc in closest_vectors:
-        yield cc
-
-def generate_close_vectors_canon(lattice_basis, target, bound, count=2000):
-    """
-    Generate a generator of vectors which are close, without
-    bound determined by N to the `target`. The first
-    element of the list is the solution of the CVP.
-    """
-    # Compute the closest element
-    closest = solve_closest_vector_problem(lattice_basis, target)
-    yield closest
-
-    # Now use short vectors below a bound to find
-    # close enough vectors
-
-    short_vectors = generate_short_vectors(lattice_basis, bound, count=count)
-
-    for v in short_vectors:
-        yield closest + v
-
 def strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_of_two=False, seed=0, which_enum="my"):
     """
-    Constructs a lattice basis and then looks for
-    close vectors to the target.
-
-    Allows for optimising output from pN^4 to pN^3,
-    which helps keep the norm small and hence the
-    degree of the isogenies small
+    Taken from KLPT.py - strong_approximation_lattice_heuristic
     """
     # with open( f"salh_{seed}", "wb" ) as file:
     #     pickle.dump({
@@ -268,10 +174,10 @@ for ii in range(len(objects)):
             break
     if TMP2 is None:
         continue
-    bound, basis, target = TMP["bound"], TMP["basis"], TMP["target"]
+    bound, basis, target, p, L = TMP["bound"], TMP["basis"], TMP["target"], TMP["p"], TMP["L"]
 
-    gen_my_implementation = enum(basis,target,bound)
-    gen_canon_implementation = generate_close_vectors_canon(basis, target, bound)
+    gen_my_implementation = enum(basis,target,1.01*bound) #note, the target here is with plus sign since it has been dumped so on disk!
+    gen_canon_implementation = generate_close_vectors_old(basis, target, p, L, count=144, dump=False) #note, the target here is with plus sign!
 
     N, C, D, λ, L, small_power_of_two = TMP2["N"], TMP2["C"], TMP2["D"], TMP2["lambda"], TMP2["L"], TMP2["small_power_of_two"]
     try:
@@ -289,15 +195,16 @@ for ii in range(len(objects)):
     if oldstepnum is None:
         oldstepnum, oldrednrm = -1, -1
     msg = f"failed to find"
-    print( f"My result:      { msg if mystepnum<0 else mystepnum } with norm { msg if myrednrm<0 else myrednrm }" )
-    print( f"Classic result: { msg if oldstepnum<0 else oldstepnum } with norm { msg if oldrednrm<0 else oldrednrm }" )
+    print( f"My result:      { msg if mystepnum<0 else mystepnum } steps with norm { msg if myrednrm<0 else myrednrm }" )
+    print( f"Classic result: { msg if oldstepnum<0 else oldstepnum }  steps  with norm { msg if oldrednrm<0 else oldrednrm }" )
     rat = myrednrm/oldrednrm
-    if rat>0:
-        print( f"Ratio my/classic: {(rat)}" )
+    if rat>0 and mystepnum>0:
+        print( f"Ratio norm diff: my/classic: {(rat)} mysteps/classicsteps: {RealField(40)(mystepnum/oldstepnum)}" )
+    print()
 
 
     lmy = list(islice(gen_my_implementation,nsamples))    #list of enum vect (my)
-    lcanon = list(islice(gen_my_implementation,nsamples))   #list of enum vect (their)
+    lcanon = list(islice(gen_canon_implementation,nsamples))   #list of enum vect (their)
     nmy = [ norm(v).n(40) for v in lmy ]
     ncanon = [ norm(v).n(40) for v in lcanon ]
     diff = [nmy[i]-ncanon[i] for i in range(min(len(nmy),len(ncanon)))]
@@ -309,6 +216,9 @@ for ii in range(len(objects)):
     # print(f"They: {ncanon}")
     # print(f"Diff: {diff}")
     # print(f"Mult diff: {multdiff}")
+    Lat = IntegerMatrix.from_matrix( basis )
+    G = GSO.Mat( Lat )
+    G.update_gso()
     if graph_flag:
         # list_plot( [RR(d) for d in diff] ).save_image(f"{counter}_diff.png")
         plt.plot(np.array(nmy), color='blue')
@@ -318,10 +228,13 @@ for ii in range(len(objects)):
             plt.plot([mystepnum],[nmy[min(len(nmy)-1,mystepnum)]], marker="*",color="black", markersize=15)
 
         if oldstepnum>0:
-            plt.plot([oldstepnum],[ncanon[min(len(ncanon)-1,oldstepnum)]], marker="*",color="orange", markersize=15)
+            plt.plot([oldstepnum],[ncanon[min(max(0, len(ncanon)-1),oldstepnum)]], marker="*",color="orange", markersize=15)
         red_patch = mpatches.Patch(color='blue', label='My')
         blue_patch = mpatches.Patch(color='red', label='SQISign')
         plt.legend(handles=[blue_patch,red_patch])
+
+        plt.title(f"r11/r00: {G.get_r(1,1)**0.5 / G.get_r(0,0)**0.5: .4f}, mu10: {G.get_mu(1,0): .4f}, bnd/r00^2: {bound/ G.get_r(0,0): .4f}")
+
         plt.savefig(f"{counter}_comp.png")
         plt.clf()
         # print(f"my: {mystepnum} | their: {oldstepnum}")

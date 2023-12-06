@@ -160,72 +160,8 @@ def dot(v,w):
 #             x = xmid + (-1)**(j%2)*(j//2)
 #             yield (x,y)
 
-# def enum(B,t,r, count = 10, pruning=[5,5]):
-#     out = []
-#     b0, b1 = vector(B[0]), vector(B[1])
-#     mu = RR(b1.dot_product(b0)/norm(b0)**2)
-#     bstar1 = (b1 - mu*b0).n()
-#     sy = t
-#     py = sy.dot_product(bstar1)/bstar1.dot_product(bstar1)
-#     ry = ceil( min( r/norm(bstar1), count ) )
-#     for yy in range(min(2*ry,pruning[0])): #y in: floor(py-ry), ceil(py+ry)
-#         y = round( (-1)**((yy)%2)*(yy//2) + py ) #enum starts at the center of interval
-#         sx = sy - y*b1
-#         rx = (r**2-round(py-y)**2*norm(bstar1).n()**2).n()
-#         if rx <0:
-#             continue
-#         rx = RR( sqrt( rx ) / norm(b0) )
-#         rx = min( ceil(rx), count )
-#         px = (sx.dot_product(b0)/b0.dot_product(b0)).n()
-#         for xx in range( min( ceil(RR(2*rx)), pruning[1] ) ): #x in: round(px-rx), round(px+rx)
-#             x =  round( (-1)**((1+xx)%2)*xx + px )
-#             yield vector((x,y))*B
 
-# def enum(B,t,r, count = 40):
-#     out = []
-#     b0, b1 = vector(B[0]), vector(B[1])
-#     mu = RR(b1.dot_product(b0)/norm(b0)**2)
-#     bstar1 = (b1 - mu*b0).n()
-#     sy = t
-#     py = sy.dot_product(bstar1)/bstar1.dot_product(bstar1) #projection on second gsvect
-#     ry = ceil( min( r/norm(bstar1), count ) ) #bound on the largest x-ennum
-#     px = (t.dot_product(b0)/b0.dot_product(b0)).n()
-#     maxrx = RR( sqrt( r**2 - (norm(bstar1)*round(py))**2 ) / norm(b0) ) #bound on the largest y-enum
-#     branch_lim = max( round(ry), round(maxrx) )
-#     retno = 0
-#     for b in range( branch_lim ):
-#         for y in set( [ round(py+b) , round(py-b) ] ):#each y in that boundary has 2*(b-1)+1 enumerated children,
-#                                      #so we have to enum only 2 children at that stage
-#             sx = sy - y*b1
-#             rx = (r**2-round(py-y)**2*norm(bstar1).n()**2).n()
-#             if rx <0:
-#                 break
-#             rx = RR( sqrt( rx ) / norm(b0) )
-#             rx = round(rx)
-#             px = (sx.dot_product(b0)/b0.dot_product(b0)).n()
-#             if b<2*rx: #x in: round(px-rx), round(px+rx)
-#                 yield vector((round(px+b),y))*B
-#                 yield vector((round(px-b),y))*B
-#                 retno+=2
-#             if retno >= count:
-#                 break
-#         if retno >= count:
-#             break
-#
-#         for y in range(round(py)-b+1,round(py)+b): #newly added y's have 2*b+1
-#             sx = sy - y*b1
-#             rx = (r**2-round(py-y)**2*norm(bstar1).n()**2).n()
-#             if rx <0:
-#                 continue
-#             rx = RR( sqrt( rx ) )
-#             px = (sx.dot_product(b0)/b0.dot_product(b0)).n()
-#             for xx in range( min( ceil(RR(2*rx)), 2*b+1 ) ): #x in: round(px-rx), round(px+rx)
-#                 x_ =  round( (-1)**((1+xx)%2)*xx + px )
-# #                 print("ooo", (x-round(px),y-round(py)))
-#                 yield vector((x_,y))*B
-#                 retno+=1
-
-def enum(B,t,r, count = 40):
+def enum(B,t,r, count = 300):
     out = []
     b0, b1 = vector(B[0]), vector(B[1])
     mu = RR(b1.dot_product(b0)/norm(b0)**2)
@@ -238,7 +174,6 @@ def enum(B,t,r, count = 40):
     branch_lim = max( round(ry), round(maxrx) )
     retno = 0
     for b in range( branch_lim ):
-#         print("new")
         for y in set( [ round(py+b) , round(py-b) ] ):#each y in that boundary has 2*(b-1)+1 enumerated children,
                                      #so we have to enum only 2 children at that stage
             sx = sy - y*b1
@@ -251,9 +186,6 @@ def enum(B,t,r, count = 40):
             if b<2*rx: #x in: round(px-rx), round(px+rx)
                 yield vector((round(px+b),y))*B
                 yield vector((round(px-b),y))*B
-#                 print(b,"0 & 1",y)
-#                 print((round(b),y-round(py)))
-#                 print((round(-b),y-round(py)))
                 retno+=2
             if retno >= count:
                 break
@@ -310,28 +242,8 @@ def generate_close_vectors_my(lattice_basis, target, p, L, count=200, seed=0, wh
                 "L": L,
                 "seed": seed
             }, file)
-    #
-    # lattice_basis = lattice_basis.LLL()
-    # B = IntegerMatrix.from_matrix( lattice_basis )
-    # G = GSO.Mat( B, float_type="ld" )
-    # G.update_gso()
 
-    # yield next(EnumerateCloseVectors(G,1,target,bound))
-
-    # enum_ = Enumeration( G, strategy=EvaluatorStrategy.BEST_N_SOLUTIONS, nr_solutions=20 )
-    # radius, re = bound , 0
-    # print(f"bound: {bound*1.0}, {[norm_(ll) for ll in lattice_basis]}, renum= {b0} | seed = {seed} ")
-    #
-    # C = enum_.enumerate( 0, G.B.nrows, 0.98*bound, re, target=target  ) #target=[float(vv) for vv in target]
-    # for c in C:
-    #     print( norm(vector(G.B.multiply_left(c[1]))+closest).n(), end=", " )
-    # print()
-    T = list_generate_short_vectors(lattice_basis, bound, 20)
-    # for w in T:
-    #     print(f"They: {norm(vector(w)+closest).n()}", end=", ")
-    print()
-
-    C = enum(lattice_basis,target, 0.8*bound)
+    C = enum(lattice_basis,target, bound, count=count)
     closest_vectors = C #[ tmp for tmp in sorted([c for c in C], key=(lambda v:norm(v-target).n())) ]
     for cc in closest_vectors:
         #print(f"nrm: {norm(cc).n()}", end=", ")
@@ -375,25 +287,23 @@ def generate_close_vectors_old(lattice_basis, target, p, L, count=1000, seed=0, 
                 "seed": seed
             }, file)
 
-    lattice_basis = lattice_basis.LLL()
-    B = IntegerMatrix.from_matrix( lattice_basis )
-    G = GSO.Mat( B, float_type="ld" )
-    G.update_gso()
+    # lattice_basis = lattice_basis.LLL()
+    # B = IntegerMatrix.from_matrix( lattice_basis )
+    # G = GSO.Mat( B, float_type="ld" )
+    # G.update_gso()
 
-    # yield next(EnumerateCloseVectors(G,1,target,bound))
-
-    enum = Enumeration( G, strategy=EvaluatorStrategy.FIRST_N_SOLUTIONS, nr_solutions=count )
-    radius, re = bound , 0
-    # print(f"bound: {bound*1.0}, {[norm_(ll) for ll in lattice_basis]}, renum= {b0} | seed = {seed} ")
-
-    C = enum.enumerate( 0, G.B.nrows, 0.8*bound, re, target=diff  ) #target=[float(vv) for vv in target]
-
-    t0 = time.perf_counter()
-    print(f"enum done in: {time.perf_counter()-t0}")
-    C = [ vector(ZZ,cc[1])*lattice_basis for cc in C ]
-    closest_vectors = [ tmp for tmp in sorted([c for c in C], key=(lambda v:norm_([v[k]-target[k] for k in range(len(v))])) ) ]
-    for cc in closest_vectors:
-        yield cc+closest
+    # enum = Enumeration( G, strategy=EvaluatorStrategy.FIRST_N_SOLUTIONS, nr_solutions=count )
+    # radius, re = bound , 0
+    # # print(f"bound: {bound*1.0}, {[norm_(ll) for ll in lattice_basis]}, renum= {b0} | seed = {seed} ")
+    #
+    # C = enum.enumerate( 0, G.B.nrows, 0.8*bound, re, target=diff  ) #target=[float(vv) for vv in target]
+    #
+    # t0 = time.perf_counter()
+    # print(f"enum done in: {time.perf_counter()-t0}")
+    # C = [ vector(ZZ,cc[1])*lattice_basis for cc in C ]
+    # closest_vectors = [ tmp for tmp in sorted([c for c in C], key=(lambda v:norm_([v[k]-target[k] for k in range(len(v))])) ) ]
+    # for cc in closest_vectors:
+    #     yield cc+closest
 
     short_vectors = generate_short_vectors(lattice_basis, bound, count=count)
 
