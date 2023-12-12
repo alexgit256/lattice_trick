@@ -64,9 +64,9 @@ def strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_
 
     # Generate vectors close to target
     if which_enum=="my":
-        close_vectors = generate_close_vectors_my(lattice_basis, -target, p, L, seed=seed, which_enum=which_enum, dump=False)
+        close_vectors = generate_close_vectors_my(lattice_basis, -target, p, L, seed=seed, which_enum=which_enum, count=2000, dump=False)
     else:
-        close_vectors = generate_close_vectors_old(lattice_basis, -target, p, L, seed=seed, which_enum=which_enum, dump=False)
+        close_vectors = generate_close_vectors_old(lattice_basis, -target, p, L, seed=seed, which_enum=which_enum, count=2000, dump=False)
 
     xp, yp = None, None
     stepnum = 0
@@ -91,7 +91,7 @@ def strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_
         if two_squares:
             xp, yp = two_squares
             break
-
+    print("\n")
     if xp is None:
         # Never found vector which had a valid solution
         return None, None
@@ -109,11 +109,6 @@ def strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_
     # Check that Nrd(μ) == L
     # and that μ is in O0
     rednrm = μ.reduced_norm()
-    # print( f"{which_enum}: {μ} : {rednrm}" )
-    # if which_enum == "my":
-    #     print(f"My norm: {rednrm}")
-    # else:
-    #     print(f"Classical norm: {rednrm}")
     assert rednrm == L
     assert μ in O0
     return stepnum, μ #μ
@@ -141,7 +136,6 @@ objects = []
 for root, dirs, files in os.walk(rootdir):
     for file in files:
         if regex.match(file):
-            # print(file, end=", ")
             file_to_open = data_folder / file
             with open(file_to_open,"rb") as file:
                 D = pickle.load( file )
@@ -156,21 +150,18 @@ objects2 = []
 for root, dirs, files in os.walk(rootdir):
     for file in files:
         if regex.match(file):
-            # print(file, end=", ")
             file_to_open = data_folder / file
             with open(file_to_open,"rb") as file:
                 D = pickle.load( file )
                 objects2.append( D )
 
-# assert len(objects)==len(objects2), f"Inconsistent data: different lens!"
 objects.sort(key=lambda obj:obj["seed"])
 objects2.sort(key=lambda obj:obj["seed"])
-# assert all( [objects[i]["seed"]==objects2[i]["seed"] for i in range(len(objects))] ), f"Inconsistent data: seeds do not match!"
 
 #For TMP in loaded lattices, compare.
 normrat_list, steprat_list = [], []
 
-counter = 0
+counter, mysucc, oldsucc = 0, 0, 0
 for ii in range(len(objects)):
     TMP = objects[ii]
     TMP2 = None
@@ -180,20 +171,25 @@ for ii in range(len(objects)):
             break
     if TMP2 is None:
         continue
-    bound, basis, target, p, L = TMP["bound"], TMP["basis"], TMP["target"], TMP["p"], TMP["L"]
+    bound, basis, target, p, L = TMP["bound"], TMP["basis"], TMP["target"], TMP["p"], TMP["L"] #retrieve all the info about lattices
+    print( f"bound, basis, target, p, L: {bound, basis, target, p, L}" )
 
-    gen_my_implementation = enum(basis,target,1.01*bound) #note, the target here is with plus sign since it has been dumped so on disk!
-    gen_canon_implementation = generate_close_vectors_old(basis, target, p, L, count=144, dump=False) #note, the target here is with plus sign!
+    gen_my_implementation = enum(basis,-target, bound)  #sample_babai( basis, -target, (bound)**0.5/2, count=144 ) 
+    gen_canon_implementation = generate_close_vectors_old(basis, -target, p, L, count=144, dump=False) #note, the target here is with plus sign!
 
     N, C, D, λ, L, small_power_of_two = TMP2["N"], TMP2["C"], TMP2["D"], TMP2["lambda"], TMP2["L"], TMP2["small_power_of_two"]
     try:
         mystepnum, myrednrm = strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_of_two, which_enum="my")
         myrednrm = -1 if myrednrm is None else vector( list(myrednrm) ).norm().n()
+        if myrednrm > 0:
+            mysucc+=1
     except AssertionError:
         mystepnum, myrednrm = -1, -1
     try:
         oldstepnum, oldrednrm = strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_of_two, which_enum="not_my")
         oldrednrm = -1 if oldrednrm is None else vector( list(oldrednrm) ).norm().n()
+        if oldrednrm > 0:
+            oldsucc+=1
     except AssertionError:
         oldstepnum, oldrednrm = -1, -1
     if mystepnum is None:
@@ -202,7 +198,8 @@ for ii in range(len(objects)):
         oldstepnum, oldrednrm = -1, -1
     msg = f"failed to find"
     print( f"My result:      { msg if mystepnum<0 else mystepnum } steps with norm { msg if myrednrm<0 else myrednrm }" )
-    print( f"Classic result: { msg if oldstepnum<0 else oldstepnum }  steps  with norm { msg if oldrednrm<0 else oldrednrm }" )
+    t0, minLen, _, _, _, _ = NP( basis, -target )
+    print( f"Classic result: { msg if oldstepnum<0 else oldstepnum }  steps  with norm { msg if oldrednrm<0 else oldrednrm } ||b0-t||={norm(target+t0).n(), minLen**0.5}" )
     normrat = myrednrm/oldrednrm
     steprat = mystepnum/oldstepnum
     if steprat>0 and mystepnum>0:
@@ -228,6 +225,8 @@ for ii in range(len(objects)):
     Lat = IntegerMatrix.from_matrix( basis )
     G = GSO.Mat( Lat )
     G.update_gso()
+
+    # print(f"debug: {nmy} \n{ncanon}")
     if graph_flag:
         # list_plot( [RR(d) for d in diff] ).save_image(f"{counter}_diff.png")
         plt.plot(np.array(nmy), color='blue')
@@ -248,7 +247,7 @@ for ii in range(len(objects)):
 
         plt.savefig(f"{counter}_comp.png")
         plt.clf()
-        # print(f"my: {mystepnum} | their: {oldstepnum}")
+        print(f"my: {mystepnum} | their: {oldstepnum}")
         # try:
         #     if isinstance( multdiff, list ):
         #         list_plot( multdiff ).save_image(f"{counter}_mult.png")
@@ -258,3 +257,4 @@ for ii in range(len(objects)):
 
 print( f"Mean step ratio: {geo_mean_overflow(steprat_list)}" )
 print( f"Mean norm ratio: {geo_mean_overflow(normrat_list)}" )
+print( f"My successes: {mysucc}. Old successes: {oldsucc} out of {counter}" )

@@ -33,13 +33,15 @@ import numpy as np
 
 from sage import all
 from sage.all_cmdline import *   # import sage library
+from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
+RR = RealField( 144 )
 
 def solve_closest_vector_problem(lattice_basis, target):
     """
     Use the fpylll library to solve the CVP problem for a given
     lattice basis and target vector
     """
-    L = IntegerMatrix.from_matrix(lattice_basis.LLL())
+    L = IntegerMatrix.from_matrix(lattice_basis)
     v = CVP.closest_vector(L, target)
     # fpylll returns a type `tuple` object
     return vector(v)
@@ -92,13 +94,13 @@ def generate_short_vectors(lattice_basis, bound, count=3000):
     Most of the heavy lifting of this function is done by
     generate_short_vectors_fpyll
     """
-    L = lattice_basis.LLL()
-    short_vectors = generate_short_vectors_fpyll(L, bound, count=count)
+    # L = lattice_basis.LLL()
+    short_vectors = generate_short_vectors_fpyll(lattice_basis, bound, count=count)
     for _, xis in short_vectors:
         # Returns values x1,x2,...xr such that
         # x0*row[0] + ... + xr*row[r] = short vector
         v3 = vector([ZZ(xi) for xi in xis])
-        v = v3 * L
+        v = v3 * lattice_basis
         yield v
 
 def list_generate_short_vectors(lattice_basis, bound, count=3000):
@@ -109,14 +111,14 @@ def list_generate_short_vectors(lattice_basis, bound, count=3000):
     Most of the heavy lifting of this function is done by
     generate_short_vectors_fpyll
     """
-    L = lattice_basis.LLL()
+    # L = lattice_basis.LLL()
     l = []
-    short_vectors = generate_short_vectors_fpyll(L, bound, count=count)
+    short_vectors = generate_short_vectors_fpyll(lattice_basis, bound, count=count)
     for _, xis in short_vectors:
         # Returns values x1,x2,...xr such that
         # x0*row[0] + ... + xr*row[r] = short vector
         v3 = vector([ZZ(xi) for xi in xis])
-        v = v3 * L
+        v = v3 * lattice_basis
         l.append( v )
     return(l)
 
@@ -135,38 +137,52 @@ def NPfpylll( B, t ):
     diff = t-cl
     return cl, diff.dot_product(diff)
 
-def enum( B, t, R, count=300, bnd=[1.,1.], q=1 ):
+def NP( B, t, q=1 ):
+    t1, e1 = t, 0 #line 1
+    assert q==1, "Not implemented for q>1 yet"
     r00 = B[0].dot_product(B[0])  #line 2 start
     mu10 = B[1].dot_product(B[0]) / r00
     b1star = B[1]-mu10*B[0]
     r11 = b1star.dot_product(b1star)  #line 2 end
 
+    c1 = t1.dot_product( b1star ) / r11
+    t0 = t1 - round(c1)*B[1]
+    e0 = e1 + (c1-round(c1))**2*r11
+
+    c0 = t0.dot_product( B[0] ) / r00
+    tout = t0 - round(c0)*B[0]
+    eout = e0 + (c0-round(c0))**2*r00
+
+    return( vector( ZZ, t-tout ), eout, r00, r11, mu10, b1star )
+
+def enum( B, t, R, count=2000, bnd=[lambda arg : 100, lambda arg : 0.5*arg], q=1 ):
+    # r00 = B[0].dot_product(B[0])  #line 2 start
+    # mu10 = B[1].dot_product(B[0]) / r00
+    # b1star = B[1]-mu10*B[0]
+    # r11 = b1star.dot_product(b1star)  #line 2 end
     R = R**2
+
+    # R = R**2
     assert q==1, "Not implemented for q>1 yet"
-#     t0, minLen, r00, r11, mu10, b1star = NP( B, t, q=q ) #lines 2 & 3
-    t0, minLen = NPfpylll( B, t )
-#     t0 = solve_closest_vector_problem(B, t)
-#     diff = t0 - t
-#     minLen = diff.dot_product(diff)
+    t0, minLen, r00, r11, mu10, b1star = NP( B, t, q=q ) #lines 2 & 3
 
     if minLen>R:
-        print( f"ml: {minLen}, R: {R}" )
+        print( f"No solution: {minLen} > {R}" )
         return None
 
     k = 1
     r = [ r00, r11 ]
     c = [ 0, 0 ]
-    T = [ t0, t ]
+#     T = [ t0, t ]
     e = [ 0, 0 ]
     Bstar = [ B[0], vector(b1star) ]
-    print(f"AAA: {norm(Bstar[1]).n()**2}")
 
-    Inty = (bnd[1]*(R) / r[1])**0.5  #we need to enum every y in the worst case
+    Inty = RR( (bnd[1](R) / r[1])**0.5 ) #we need to enum every y in the worst case
     cstary = t.dot_product(Bstar[1]) / r[1] #center for y's
     cy = round( cstary ) #the rounded center for y coord
     # amount of steps to the left (resp. right) for y coordinate
-    ly, ry = floor(cstary-Inty/2), ceil(cstary+Inty/2)
-    print( f" ly, ry, cy, cstary, Inty : { ly, ry, cy, cstary, Inty }" )
+    ly, ry = ceil(cstary-Inty/2), floor(cstary+Inty/2)
+    print( f" ly, ry, cy, Inty : { ly, ry, cy, Inty }" )
 
     cntr = 0 #for auto abort
     goonflag = True
@@ -176,19 +192,24 @@ def enum( B, t, R, count=300, bnd=[1.,1.], q=1 ):
             """
             if cy - ystep>=ly:
                 c[1] = cy - ystep #go to the left edge
-                print(f"y: {c[1]}")
-                T[0] = t + c[1]*B[1]  #project target on line
+                t0 = t - c[1]*B[1]  #project target on line
                 e[0] = e[1] + (c[1]-cstary)**2 * r[1]  #current squared-error
 
-                Intx = (bnd[0]*(R - e[0]) / r[1])**0.5 #get len of x's for current y=c[1]
-                cstarx = T[0].dot_product(Bstar[0]) / r[0] #center for x's (for current y)
+                Intx = min( 50, (bnd[0](R - e[0]) / r[1])**0.5 ) #get len of x's for current y=c[1]
+                cstarx = t0.dot_product(Bstar[0]) / r[0] #center for x's (for current y)
                 cx = round( cstarx ) #the rounded center for x coord
                 # amount of steps to the left (resp. right) for x coordinate
                 lx, rx = floor(cstarx-Intx/2), ceil(cstarx+Intx/2)
+                # print( f" lx, rx, cx, Intx : { lx, rx, cx, Intx }" )
                 for xstep in range( ceil(Intx/2) ):
                     if cx-xstep>=lx: #if we are within the left boundary for x
                         c[0] = cx - xstep #go to the left edge
-                        yield vector(c)*B
+                        out = vector(c)*B
+                        asrt = norm(out-t)**2 <= R
+                        if not asrt:
+                            print( norm(out-t)**2 / R )
+                        assert asrt, f"Enum bad norm"
+                        yield out
                         cntr+=1
                         if cntr>=count:
                             goonflag = False
@@ -196,7 +217,12 @@ def enum( B, t, R, count=300, bnd=[1.,1.], q=1 ):
 
                     if xstep!=0 and cx+xstep<=rx: #if we are within the right boundary for x and not at zero
                         c[0] = cx + xstep
-                        yield vector(c)*B
+                        out = vector(c)*B
+                        asrt = norm(out-t)**2 <= R
+                        if not asrt:
+                            print( norm(out-t)**2 / R )
+                        assert asrt, f"Enum bad norm"
+                        yield out
                         cntr+=1
                         if cntr>=count:
                             goonflag = False
@@ -206,19 +232,24 @@ def enum( B, t, R, count=300, bnd=[1.,1.], q=1 ):
             """
             if ystep!=0 and cy - ystep <= ry:
                 c[1] = cy + ystep #go to the left edge
-                print(f"y: {c[1]}")
-                T[0] = t + c[1]*B[1]  #project target on line
+                t0 = t - c[1]*B[1]  #project target on line
                 e[0] = e[1] + (c[1]-cstary)**2 * r[1]  #current squared-error
 
-                Intx = (bnd[0]*(R - e[0]) / r[1])**0.5 #get len of x's for current y=c[1]
-                cstarx = T[0].dot_product(Bstar[0]) / r[0] #center for x's (for current y)
+                min( 50, (bnd[0](R - e[0]) / r[1])**0.5 ) #get len of x's for current y=c[1]
+                cstarx = t0.dot_product(Bstar[0]) / r[0] #center for x's (for current y)
                 cx = round( cstarx ) #the rounded center for x coord
                 # amount of steps to the left (resp. right) for x coordinate
                 lx, rx = ceil(cstarx-Intx/2), floor(cstarx+Intx/2)
+                # print( f" lx, rx, cx, Intx : { lx, rx, cx, Intx }" )
                 for xstep in range( ceil(Intx/2) ):
                     if cx-xstep>=lx: #if we are within the left boundary for x
                         c[0] = cx - xstep #go to the left edge
-                        yield vector(c)*B
+                        out = vector(c)*B
+                        asrt = norm(out-t)**2 <= R
+                        if not asrt:
+                            print( norm(out-t)**2 / R )
+                        assert asrt, f"Enum bad norm"
+                        yield out
                         cntr+=1
                         if cntr>=count:
                             goonflag = False
@@ -226,7 +257,12 @@ def enum( B, t, R, count=300, bnd=[1.,1.], q=1 ):
 
                     if xstep!=0 and cx+xstep<=rx: #if we are within the right boundary for x and not at zero
                         c[0] = cx + xstep
-                        yield vector(c)*B
+                        out = vector(c)*B
+                        asrt = norm(out-t)**2 <= R
+                        if not asrt:
+                            print( norm(out-t)**2 / R )
+                        assert asrt, f"Enum bad norm"
+                        yield out
                         cntr+=1
                         if cntr>=count:
                             goonflag = False
@@ -234,58 +270,15 @@ def enum( B, t, R, count=300, bnd=[1.,1.], q=1 ):
             if goonflag is False:
                 break
 
-# def enum(B,t,r, count = 40):
-#     out = []
-#     b0, b1 = vector(B[0]), vector(B[1])
-#     mu = RR(b1.dot_product(b0)/norm(b0)**2)
-#     bstar1 = (b1 - mu*b0).n()
-#     sy = t
-#     py = sy.dot_product(bstar1)/bstar1.dot_product(bstar1) #projection on second gsvect
-#     ry = ceil( min( r/norm(bstar1), count ) ) #bound on the largest x-ennum
-#     px = (t.dot_product(b0)/b0.dot_product(b0)).n()
-#     maxrx = RR( sqrt( r**2 - (norm(bstar1)*round(py))**2 ) / norm(b0) ) #bound on the largest y-enum
-#     branch_lim = max( round(ry), round(maxrx) )
-#     retno = 0
-#     for b in range( branch_lim ):
-# #         print("new")
-#         for y in set( [ round(py+b) , round(py-b) ] ):#each y in that boundary has 2*(b-1)+1 enumerated children,
-#                                      #so we have to enum only 2 children at that stage
-#             sx = sy - y*b1
-#             rx = (r**2-round(py-y)**2*norm(bstar1).n()**2).n()
-#             if rx <0:
-#                 break
-#             rx = RR( sqrt( rx ) / norm(b0) )
-#             rx = round(rx)
-#             px = (sx.dot_product(b0)/b0.dot_product(b0)).n()
-#             if b<2*rx: #x in: round(px-rx), round(px+rx)
-#                 yield vector((round(px+b),y))*B
-#                 yield vector((round(px-b),y))*B
-# #                 print(b,"0 & 1",y)
-# #                 print((round(b),y-round(py)))
-# #                 print((round(-b),y-round(py)))
-#                 retno+=2
-#             if retno >= count:
-#                 break
-#         if retno >= count:
-#             break
+# def sample_babai( B, t, bound, count=2000 ):
+#     D = DiscreteGaussianDistributionIntegerSampler( sigma=bound )
 #
-#         #for y in range(round(py)-b+1,round(py)+b): #newly added y's have 2*b+1
-#         for yy in range( 2*b+1 ):
-#             y = round( (-1)**((yy)%2)*(yy//2) + py )
-#             sx = sy - y*b1
-#             rx = (r**2-round(py-y)**2*norm(bstar1).n()**2).n()
-#             if rx <0:
-#                 continue
-#             rx = RR( sqrt( rx ) )
-#             px = (sx.dot_product(b0)/b0.dot_product(b0)).n()
-#             for xx in range( min( ceil(RR(2*rx)), 2*b+1 ) ): #x in: round(px-rx), round(px+rx)
-#                 x =  round( (-1)**((1+xx)%2)*xx + px )
-#                 # print(b,x,y)
-# #                 print("ooo", (x-round(px),y-round(py)))
-#                 yield vector((x,y))*B
-#                 retno+=1
+#     for cntr in range(count):
+#         t_ = t + vector( [D(), D()] )
+#         T, eout, r00, r11, mu10, b1star = NP( B, t_ )
+#         yield T
 
-def generate_close_vectors_my(lattice_basis, target, p, L, count=200, seed=0, which_enum="my", dump=True):
+def generate_close_vectors_my(lattice_basis, target, p, L, count=2000, seed=0, which_enum="my", dump=True):
     """
     Generate a generator of vectors which are close, without
     bound determined by N to the `target`. The first
@@ -296,19 +289,17 @@ def generate_close_vectors_my(lattice_basis, target, p, L, count=200, seed=0, wh
     closest = solve_closest_vector_problem(lattice_basis, target)
     yield closest
 
-    # print(f"target: {target}")
     # Now use short vectors below a bound to find
     # close enough vectors
 
     # Set the distance
     diff = target - closest
     distance = diff.dot_product(diff)
-    # print(target)
 
     # Compute the bound from L
-    tar=[float(vv) for vv in target]
     b0 = L // p
-    bound = floor((b0 + distance) + (2 * (b0 * distance).sqrt()))
+    # bound = floor((b0 + distance) + (2 * (b0 * distance).sqrt()))
+    bound = L//p
     if dump:
         with open( f"cvp_{seed}", "wb" ) as file:
             pickle.dump({
@@ -319,43 +310,24 @@ def generate_close_vectors_my(lattice_basis, target, p, L, count=200, seed=0, wh
                 "L": L,
                 "seed": seed
             }, file)
-    #
-    # lattice_basis = lattice_basis.LLL()
-    # B = IntegerMatrix.from_matrix( lattice_basis )
-    # G = GSO.Mat( B, float_type="ld" )
-    # G.update_gso()
-
-    # yield next(EnumerateCloseVectors(G,1,target,bound))
-
-    # enum_ = Enumeration( G, strategy=EvaluatorStrategy.BEST_N_SOLUTIONS, nr_solutions=20 )
-    # radius, re = bound , 0
-    # print(f"bound: {bound*1.0}, {[norm_(ll) for ll in lattice_basis]}, renum= {b0} | seed = {seed} ")
-    #
-    # C = enum_.enumerate( 0, G.B.nrows, 0.98*bound, re, target=target  ) #target=[float(vv) for vv in target]
-    # for c in C:
-    #     print( norm(vector(G.B.multiply_left(c[1]))+closest).n(), end=", " )
-    # print()
-    # T = list_generate_short_vectors(lattice_basis, bound, 20)
-    # for w in T:
-    #     print(f"They: {norm(vector(w)+closest).n()}", end=", ")
     print()
 
-    C = enum(lattice_basis,target, 0.99*bound)
-    closest_vectors = C #[ tmp for tmp in sorted([c for c in C], key=(lambda v:norm(v-target).n())) ]
+    closest_vectors = enum(lattice_basis, target, bound, count=count, bnd=[lambda arg:0.01*arg, lambda arg:0.25*arg])
+    # closest_vectors = sample_babai( lattice_basis, target, bound=(bound)**0.5, count=count )
     for cc in closest_vectors:
-        #print(f"nrm: {norm(cc).n()}", end=", ")
         yield cc
 
-def generate_close_vectors_old(lattice_basis, target, p, L, count=1000, seed=0, which_enum="my", dump=True): #old ver
+def generate_close_vectors_old(lattice_basis, target, p, L, count=2000, seed=0, which_enum="my", dump=True): #old ver
     """
     Generate a generator of vectors which are close, without
     bound determined by N to the `target`. The first
     element of the list is the solution of the CVP.
     """
     # Compute the closest element
+    lattice_basis = lattice_basis.LLL()
     closest = solve_closest_vector_problem(lattice_basis, target)
     yield closest
-    # print(f"target: {target}")
+
     # Now use short vectors below a bound to find
     # close enough vectors
 
@@ -365,14 +337,13 @@ def generate_close_vectors_old(lattice_basis, target, p, L, count=1000, seed=0, 
     # print(target)
 
     # Compute the bound from L
-    tar=[float(vv) for vv in target]
-    b0 = L // p
+    b0 = L // p  #max enum length defived from SQISign condition
     bound = floor((b0 + distance) + (2 * (b0 * distance).sqrt()))
 
     B = IntegerMatrix.from_matrix( lattice_basis )
     G = GSO.Mat( B, float_type="ld" )
     G.update_gso()
-    # seed = randint(0,2**20)
+
     if dump:
         with open( f"cvp_{seed}", "wb" ) as file:
             pickle.dump({
@@ -384,18 +355,14 @@ def generate_close_vectors_old(lattice_basis, target, p, L, count=1000, seed=0, 
                 "seed": seed
             }, file)
 
-    lattice_basis = lattice_basis.LLL()
     B = IntegerMatrix.from_matrix( lattice_basis )
     G = GSO.Mat( B, float_type="ld" )
     G.update_gso()
 
-    # yield next(EnumerateCloseVectors(G,1,target,bound))
-
     enum = Enumeration( G, strategy=EvaluatorStrategy.FIRST_N_SOLUTIONS, nr_solutions=count )
     radius, re = bound , 0
-    # print(f"bound: {bound*1.0}, {[norm_(ll) for ll in lattice_basis]}, renum= {b0} | seed = {seed} ")
 
-    C = enum.enumerate( 0, G.B.nrows, 0.8*bound, re, target=diff  ) #target=[float(vv) for vv in target]
+    C = enum.enumerate( 0, G.B.nrows, 0.8*bound, re, target=diff  )
 
     t0 = time.perf_counter()
     print(f"enum done in: {time.perf_counter()-t0}")
