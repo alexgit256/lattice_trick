@@ -109,6 +109,11 @@ def strong_approximation_lattice_heuristic_emulator(N, C, D, λ, L, small_power_
     # Check that Nrd(μ) == L
     # and that μ is in O0
     rednrm = μ.reduced_norm()
+    # print( f"{which_enum}: {μ} : {rednrm}" )
+    # if which_enum == "my":
+    #     print(f"My norm: {rednrm}")
+    # else:
+    #     print(f"Classical norm: {rednrm}")
     assert rednrm == L
     assert μ in O0
     return stepnum, μ #μ
@@ -136,6 +141,7 @@ objects = []
 for root, dirs, files in os.walk(rootdir):
     for file in files:
         if regex.match(file):
+            # print(file, end=", ")
             file_to_open = data_folder / file
             with open(file_to_open,"rb") as file:
                 D = pickle.load( file )
@@ -150,13 +156,16 @@ objects2 = []
 for root, dirs, files in os.walk(rootdir):
     for file in files:
         if regex.match(file):
+            # print(file, end=", ")
             file_to_open = data_folder / file
             with open(file_to_open,"rb") as file:
                 D = pickle.load( file )
                 objects2.append( D )
 
+# assert len(objects)==len(objects2), f"Inconsistent data: different lens!"
 objects.sort(key=lambda obj:obj["seed"])
 objects2.sort(key=lambda obj:obj["seed"])
+# assert all( [objects[i]["seed"]==objects2[i]["seed"] for i in range(len(objects))] ), f"Inconsistent data: seeds do not match!"
 
 #For TMP in loaded lattices, compare.
 normrat_list, steprat_list = [], []
@@ -171,10 +180,12 @@ for ii in range(len(objects)):
             break
     if TMP2 is None:
         continue
-    bound, basis, target, p, L = TMP["bound"], TMP["basis"], TMP["target"], TMP["p"], TMP["L"] #retrieve all the info about lattices
+    sd = "seed"
+    print(f" - - - {TMP[sd]} - - - ")
+    bound, basis, target, p, L = TMP["bound"], TMP["basis"], TMP["target"], TMP["p"], TMP["L"]
     print( f"bound, basis, target, p, L: {bound, basis, target, p, L}" )
 
-    gen_my_implementation = enum(basis,-target, bound)  #sample_babai( basis, -target, (bound)**0.5/2, count=144 ) 
+    gen_my_implementation =   sample_babai( basis, -target, (bound)**0.5/2, count=144 ) #enum(basis,-target,0.99*bound)
     gen_canon_implementation = generate_close_vectors_old(basis, -target, p, L, count=144, dump=False) #note, the target here is with plus sign!
 
     N, C, D, λ, L, small_power_of_two = TMP2["N"], TMP2["C"], TMP2["D"], TMP2["lambda"], TMP2["L"], TMP2["small_power_of_two"]
