@@ -184,6 +184,7 @@ def enum( B, t, R, count=2000, bnd=[lambda arg : 100, lambda arg : 0.5*arg], q=1
     ly, ry = ceil(cstary-Inty/2), floor(cstary+Inty/2)
     print( f" ly, ry, cy, Inty : { ly, ry, cy, Inty }" )
 
+    xcap = 30
     cntr = 0 #for auto abort
     goonflag = True
     for ystep in range( ceil(Inty/2) ):
@@ -196,7 +197,7 @@ def enum( B, t, R, count=2000, bnd=[lambda arg : 100, lambda arg : 0.5*arg], q=1
                 t0 = t - c[1]*B[1]  #project target on line
                 e[0] = e[1] + (c[1]-cstary)**2 * r[1]  #current squared-error
 
-                Intx = min( 50, (bnd[0](R - e[0]) / r[1])**0.5 ) #get len of x's for current y=c[1]
+                Intx = min( xcap, (bnd[0](R - e[0]) / r[1])**0.5 ) #get len of x's for current y=c[1]
                 cstarx = t0.dot_product(Bstar[0]) / r[0] #center for x's (for current y)
                 cx = round( cstarx ) #the rounded center for x coord
                 # amount of steps to the left (resp. right) for x coordinate
@@ -239,7 +240,7 @@ def enum( B, t, R, count=2000, bnd=[lambda arg : 100, lambda arg : 0.5*arg], q=1
                 t0 = t - c[1]*B[1]  #project target on line
                 e[0] = e[1] + (c[1]-cstary)**2 * r[1]  #current squared-error
 
-                min( 50, (bnd[0](R - e[0]) / r[1])**0.5 ) #get len of x's for current y=c[1]
+                min( xcap, (bnd[0](R - e[0]) / r[1])**0.5 ) #get len of x's for current y=c[1]
                 cstarx = t0.dot_product(Bstar[0]) / r[0] #center for x's (for current y)
                 cx = round( cstarx ) #the rounded center for x coord
                 # amount of steps to the left (resp. right) for x coordinate
@@ -361,7 +362,7 @@ def generate_close_vectors_my(lattice_basis, target, p, L, count=2000, seed=0, w
     tar=[float(vv) for vv in target]
     b0 = L // p
     # bound = floor((b0 + distance) + (2 * (b0 * distance).sqrt()))
-    bound = L//p
+    bound = L//(2*p)
     if dump:
         with open( f"cvp_{seed}", "wb" ) as file:
             pickle.dump({
@@ -374,7 +375,7 @@ def generate_close_vectors_my(lattice_basis, target, p, L, count=2000, seed=0, w
             }, file)
     print()
 
-    C = enum(lattice_basis, target, bound, count=count, bnd=[lambda arg:0.01*arg, lambda arg:0.25*arg])
+    C = enum(lattice_basis, target, bound, count=count, bnd=[lambda arg:0.5*arg, lambda arg:0.25*arg])
     # C = sample_babai( lattice_basis, target, bound=(bound)**0.5, count=count )
     closest_vectors = C #[ tmp for tmp in sorted([c for c in C], key=(lambda v:norm(v-target).n())) ]
     for cc in closest_vectors:
@@ -419,25 +420,24 @@ def generate_close_vectors_old(lattice_basis, target, p, L, count=2000, seed=0, 
                 "seed": seed
             }, file)
 
-    lattice_basis = lattice_basis.LLL()
-    B = IntegerMatrix.from_matrix( lattice_basis )
-    G = GSO.Mat( B, float_type="ld" )
-    G.update_gso()
+    # B = IntegerMatrix.from_matrix( lattice_basis )
+    # G = GSO.Mat( B, float_type="ld" )
+    # G.update_gso()
 
     # yield next(EnumerateCloseVectors(G,1,target,bound))
 
-    enum = Enumeration( G, strategy=EvaluatorStrategy.FIRST_N_SOLUTIONS, nr_solutions=count )
-    radius, re = bound , 0
-    # print(f"bound: {bound*1.0}, {[norm_(ll) for ll in lattice_basis]}, renum= {b0} | seed = {seed} ")
-
-    C = enum.enumerate( 0, G.B.nrows, 0.8*bound, re, target=diff  ) #target=[float(vv) for vv in target]
-
-    t0 = time.perf_counter()
-    print(f"enum done in: {time.perf_counter()-t0}")
-    C = [ vector(ZZ,cc[1])*lattice_basis for cc in C ]
-    closest_vectors = [ tmp for tmp in sorted([c for c in C], key=(lambda v:norm_([v[k]-target[k] for k in range(len(v))])) ) ]
-    for cc in closest_vectors:
-        yield cc+closest
+    # enum = Enumeration( G, strategy=EvaluatorStrategy.FIRST_N_SOLUTIONS, nr_solutions=count )
+    # radius, re = bound , 0
+    # # print(f"bound: {bound*1.0}, {[norm_(ll) for ll in lattice_basis]}, renum= {b0} | seed = {seed} ")
+    #
+    # C = enum.enumerate( 0, G.B.nrows, 0.8*bound, re, target=diff  ) #target=[float(vv) for vv in target]
+    #
+    # t0 = time.perf_counter()
+    # print(f"enum done in: {time.perf_counter()-t0}")
+    # C = [ vector(ZZ,cc[1])*lattice_basis for cc in C ]
+    # closest_vectors = [ tmp for tmp in sorted([c for c in C], key=(lambda v:norm_([v[k]-target[k] for k in range(len(v))])) ) ]
+    # for cc in closest_vectors:
+    #     yield cc+closest
 
     short_vectors = generate_short_vectors(lattice_basis, bound, count=count)
 
